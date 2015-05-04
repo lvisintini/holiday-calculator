@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Holiday Calendar</title>
+    <link rel="stylesheet" href="css/pikaday.css">
+    <link rel="stylesheet" href="css/site.css">
+    <script src="js/jquery-2.0.2.min.js"></script>
+    <script src="js/moment.min.js" type="text/javascript"></script>
+    <script src="js/pikaday.js" type="text/javascript"></script>
+    <script src="js/pikaday.jquery.js" type="text/javascript"></script>
+    <script src="js/ejs_production.js" type="text/javascript"></script>
+ 
+    <script type="text/javascript">
+        window.holiday_calculator = (function(holiday_calculator) {
+
+            var holiday_calculator = holiday_calculator || {};
+
+
+            holiday_calculator.fields = [];
+            holiday_calculator.bank_holidays = [];
+            var DATE_FORMAT = 'YYYY-MM-DD';
+
+            holiday_calculator.is_bank_holiday = function(date){
+                var res = false
+                $.each(holiday_calculator.bank_holidays, function(index, bank_holiday){
+                    if (bank_holiday.isSame(date)){
+                        res = true;
+                    };
+                });
+                return res;
+            };
+
+            holiday_calculator.make_calculations = function (){
+
+                var remaining = parseInt($('#allowance').val());
+
+                $.each(holiday_calculator.fields, function (seq, date_group){
+
+                    if (date_group[0].val()!='' && date_group[1].val()!=''){
+
+                        var start_date = moment(date_group[0].val(), DATE_FORMAT).startOf('day');
+                        var end_date = moment(date_group[1].val(), DATE_FORMAT).endOf('day');
+                        var holiday_length = Math.abs(start_date.diff(end_date,'days')) + 1;
+                        var allowance_consumed = 0;
+
+                        if (start_date > end_date){
+                            var aux_date = start_date.clone();
+                            start_date = end_date.clone();
+                            end_date = aux_date;
+                        }
+
+
+                        var index = start_date.clone();
+                        var bank_holidays_hit = 0;
+                        var weekends = 0;
+
+                        while ( index < end_date  || index.isSame(end_date) ){
+                            if (!holiday_calculator.is_bank_holiday(index)){
+                                if (index.day()!=6 && index.day()!=0){
+                                    remaining -= 1;
+                                    allowance_consumed += 1;
+                                } else {
+                                    weekends += 1;
+                                }
+                            } else {
+                                bank_holidays_hit += 1;
+                            };
+                            index.add('days', 1);
+                        };
+                        date_group[2].html('');
+                        date_group[2].append('Holiday length: ' + holiday_length + 'days <br/>');
+                        date_group[2].append('Allowance Consumed: '+ allowance_consumed + 'days<br/>');
+                        date_group[2].append('Bank Holidays hits: '+ bank_holidays_hit + 'days<br/>');
+                        date_group[2].append('Weekend day hits: '+ weekends + 'days<br/>');
+                    } else {
+                        if (date_group[0].val()!='' && date_group[1].val()==''){
+                            var start_date = moment(date_group[0].val(), DATE_FORMAT);
+                            date_group[1].pikaday('gotoDate', start_date.toDate());
+                        };
+                    };
+
+                });
+                $('#remaining').val(remaining);
+            };
+
+            holiday_calculator.add_fields = function () {
+                var seq = holiday_calculator.fields.length;
+                html = new EJS({url: 'js/template.ejs'}).render(
+                    { seq: seq }
+                );
+                $("#input_fields").append(html)
+
+                holiday_calculator.fields.push(
+                    [
+                        $('#from_'+seq).pikaday({
+                            defaultDate: moment().toDate(),
+                            minDate: moment().toDate(),
+                            format: holiday_calculator.date_format,
+                            onSelect: holiday_calculator.make_calculations
+                        }),
+                        $('#until_'+seq).pikaday({
+                            defaultDate: moment().toDate(),
+                            minDate: moment().toDate(),
+                            format: holiday_calculator.date_format,
+                            onSelect: holiday_calculator.make_calculations
+                        }),
+                        $('#summary_'+ seq)
+                    ]
+                );
+            };
+
+            holiday_calculator.init = function(args){
+                $('#add_fields').click(function(){
+                    holiday_calculator.add_fields();
+                });
+
+                $('#allowance').change(function(){
+                    holiday_calculator.make_calculations();
+                });
+
+                $.each(args.bank_holidays, function(index, day){
+                    var bank_holiday = moment(day, 'YYYY-MM-DD');
+                    holiday_calculator.bank_holidays.push(bank_holiday);
+                    if (bank_holiday > moment()){
+                        $('#upcoming_holidays').append('<li>'+day+'</li>');
+                    }
+                });
+
+                holiday_calculator.add_fields();
+            };
+
+            return holiday_calculator;
+        }(window.holiday_calculator || {}));
+    </script>
+</head>
+
+    <h1>Holiday Calendar</h1>
+
+    <label>Allowance:</label><input type="text" id="allowance">&nbsp;<label>Remaining:</label><input disabled="disabled" type="text" id="remaining">
+    <br/><br/>
+    <label>Holidays Comming up:</label>
+    <ul id="upcoming_holidays"></ul>
+
+    <input type="button" id="add_fields" value="Add Fields">
+    <div id="input_fields"></div>
+
+    <script type="text/javascript">
+        $(document).ready(function() {
+            holiday_calculator.init({
+                bank_holidays: [
+                    '2013/05/27',
+                    '2013/08/26',
+                    '2013/12/25',
+                    '2013/12/26',
+                    '2014/01/01',
+                    '2014/04/18',
+                    '2014/04/21',
+                    '2014/05/05',
+                    '2014/05/26',
+                    '2014/08/25',
+                    '2014/12/25',
+                    '2014/12/26',
+                    '2014/01/01'
+                ]
+            });
+        });
+    </script>
+</body>
+</html>
